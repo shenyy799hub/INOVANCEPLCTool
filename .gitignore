@@ -1,0 +1,19 @@
+# ---- Visual Studio / 生成产物 ----
+.vs/
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.ilk
+*.pdb
+*.log
+
+# ---- 运行时生成物（程序运行后自动生成，不进仓库） ----
+config.ini
+Programs/
+
+# ---- 系统 ----
+Thumbs.db
+desktop.ini
+.DS_Store

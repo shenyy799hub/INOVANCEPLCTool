@@ -1,0 +1,305 @@
+﻿<Window x:Class="INOVANCEPLCTool.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:INOVANCEPLCTool"
+        mc:Ignorable="d"
+        Title="汇川 PLC 工具" Height="390" Width="520"
+        ResizeMode="CanMinimize" WindowStartupLocation="CenterScreen">
+
+    <Grid>
+        <!-- ================================================================
+             视图 1：简易模式（启动默认视图）
+             傻瓜式：只保留「标题 + 下载按钮 + 进度条 + 测试版提示卡 + 更多功能」
+             通道（USB / 串口 / TCP）不在这里选，改用记在 config.ini 里的
+             参数，点「开始下载」时按顺序自动尝试连接。
+             ★ 测试版适用范围用醒目的橙色提示卡占满中部留白，一眼可见。
+             ================================================================ -->
+        <Grid x:Name="viewSimple" Margin="14">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- 0) 标题 + 版本号 -->
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="一键下载" FontSize="17" FontWeight="Bold"
+                           VerticalAlignment="Bottom"/>
+
+                <TextBlock x:Name="lblVersionSimple" Grid.Column="1" FontSize="12"
+                           Foreground="#FF888888" VerticalAlignment="Bottom" Margin="8,0,0,1"
+                           ToolTip="软件版本号（在「更多功能」→ 关于 里也能看到）"/>
+            </Grid>
+
+            <!-- 1) 下载按钮 -->
+            <Button x:Name="btnDownloadSimple" Grid.Row="1" Content="开始下载" Height="46" Margin="0,10,0,0"
+                    FontSize="18" FontWeight="Bold" Click="BtnDownloadSimple_Click"
+                    ToolTip="未连接时自动尝试连接 PLC（USB / 串口 / 网口），连接成功后自动下载。首次走 USB 会自动安装 libusb0 驱动（需点 UAC「是」）。" />
+
+            <!-- 2) 进度条 -->
+            <ProgressBar x:Name="progressSimple" Grid.Row="2" Height="16" Margin="0,10,0,0"
+                         Minimum="0" Maximum="100" Value="0"/>
+
+            <!-- 3) ★ 测试版提示卡：占据中间的留白，把「适用范围」讲到最醒目 -->
+            <Border Grid.Row="3" Margin="0,10,0,0" CornerRadius="6" Padding="11,9,11,9"
+                    Background="#FFFFF6E5" BorderBrush="#FFE8A33D" BorderThickness="1"
+                    VerticalAlignment="Stretch">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 警示标记 -->
+                    <TextBlock Grid.Column="0" Text="⚠" FontSize="20" Foreground="#FFD98324"
+                               VerticalAlignment="Top" Margin="0,1,9,0"/>
+
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="测试版 —— 仅 Easy320 验证过" FontSize="14" FontWeight="Bold"
+                                   Foreground="#FF8A4B00" TextWrapping="Wrap"/>
+
+                        <TextBlock Margin="0,5,0,0" FontSize="12" LineHeight="17" Foreground="#FF6B4700"
+                                   TextWrapping="Wrap"
+                                   Text="其他型号（H5U / H6E / Easy 系列其余机型）未逐一测试，无法确认适用性。用于其他机型前，请先在停机、可回滚的场合试烧一次。"/>
+
+                        <!-- 当前程序（运行时由 UpdateSimpleHint() 填充） -->
+                        <TextBlock x:Name="lblSimpleChannel" Margin="0,7,0,0" FontSize="12"
+                                   LineHeight="17" Foreground="#FF555555" TextWrapping="Wrap"
+                                   Text="点「开始下载」会自动连接 PLC 并下载。" />
+
+                        <!-- 归属声明（由 AppInfo.Attribution 填充，避免硬编码） -->
+                        <TextBlock x:Name="lblAttributionSimple" Margin="0,7,0,0" FontSize="11"
+                                   Foreground="#FFB07000" TextWrapping="Wrap"
+                                   Text="第三方非官方工具，仅供学习交流"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 4) 底部：「更多功能」靠右 -->
+            <Grid Grid.Row="4" Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" x:Name="lblSimpleTip" VerticalAlignment="Center"
+                           FontSize="11" Foreground="#FF999999" TextWrapping="Wrap"
+                           Text="过程与报错详见「更多功能」→ 运行日志。"/>
+
+                <Button x:Name="btnMore" Grid.Column="1" Content="更多功能 ▸" Width="96" Height="27"
+                        Margin="8,0,0,0" VerticalAlignment="Center" Click="BtnMore_Click"
+                        ToolTip="打开完整界面：手动选择通道、Run/Stop、程序文件、驱动维护与运行日志。"/>
+            </Grid>
+        </Grid>
+
+        <!-- ================================================================
+             视图 2：完整模式（点「更多功能」进入，点「◂ 简易模式」返回）
+             ================================================================ -->
+        <Grid x:Name="viewFull" Margin="12" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>   <!-- 标题 + 版本（与简易模式对称） -->
+                <RowDefinition Height="Auto"/>   <!-- 连接通道 -->
+                <RowDefinition Height="Auto"/>   <!-- PLC 运行控制 -->
+                <RowDefinition Height="Auto"/>   <!-- 程序文件 -->
+                <RowDefinition Height="Auto"/>   <!-- 驱动维护 -->
+                <RowDefinition Height="Auto"/>   <!-- 进度条 -->
+                <RowDefinition Height="*"/>      <!-- 运行日志 -->
+            </Grid.RowDefinitions>
+
+            <!-- 0) 标题 + 版本号（与简易模式的标题行对齐，避免切换回来像"换了个人"） -->
+            <Grid Grid.Row="0" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" FontSize="17" FontWeight="Bold"
+                           VerticalAlignment="Bottom">
+                    <Run Text="完整功能"/>
+                    <Run Text="  —  " FontSize="12" FontWeight="Normal" Foreground="#FF999999"/>
+                    <Run Text="手动选通道 · Run/Stop · 程序下载 · 驱动维护" FontSize="12"
+                         FontWeight="Normal" Foreground="#FF888888"/>
+                    <Run Text="　|　" FontSize="12" FontWeight="Normal" Foreground="#FFCCCCCC"/>
+                    <Run x:Name="runAttributionFull" Text="第三方非官方工具，仅供学习交流" FontSize="12"
+                         FontWeight="Normal" Foreground="#FFB07000"
+                         ToolTip="本工具为第三方非官方作品，与汇川技术无隶属关系"/>
+                </TextBlock>
+
+                <TextBlock x:Name="lblVersionFull" Grid.Column="1" FontSize="12"
+                           Foreground="#FF888888" VerticalAlignment="Bottom" Margin="8,0,0,1"/>
+            </Grid>
+
+            <!-- 1) 连接通道（顶部固定区：USB / 串口 / TCP） -->
+            <GroupBox Grid.Row="1" Header="连接通道" Margin="0,0,0,8">
+                <Grid Margin="6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- 通道单选 + 打开/关闭 -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal">
+                        <RadioButton x:Name="rbUsb" Content="USB" IsChecked="True" VerticalAlignment="Center"
+                                     Margin="0,0,12,0" Checked="RbKind_Checked"/>
+                        <RadioButton x:Name="rbSerial" Content="串口 (RS485)" VerticalAlignment="Center"
+                                     Margin="0,0,12,0" Checked="RbKind_Checked"/>
+                        <RadioButton x:Name="rbTcp" Content="TCP (以太网)" VerticalAlignment="Center"
+                                     Margin="0,0,24,0" Checked="RbKind_Checked"/>
+
+                        <Button x:Name="btnOpenPort" Content="打开" Width="80" Height="28" Margin="0,0,6,0" Click="BtnOpenPort_Click"
+                                ToolTip="按上方选中的通道与参数建立连接。连接成功后通道单选与参数面板会自动锁定，需先点「关闭」才能切换通道或修改参数。"/>
+                        <Button x:Name="btnClosePort" Content="关闭" Width="80" Height="28" Click="BtnClosePort_Click" IsEnabled="False"
+                                ToolTip="断开当前连接。断开后通道单选与参数面板解锁，可重新选择通道或修改参数。"/>
+
+                        <TextBlock x:Name="lblPortState" VerticalAlignment="Center" Margin="12,0,0,0"
+                                   FontWeight="Bold" Foreground="#FFB00020" Text="未连接"/>
+                    </StackPanel>
+
+                    <!-- 各通道参数面板（按类型切换可见；连接成功后整块禁用，需先「关闭」） -->
+                    <Grid Grid.Row="1" Margin="0,8,0,0">
+                        <!-- USB -->
+                        <StackPanel x:Name="pnlUsb" Orientation="Horizontal">
+                            <TextBlock VerticalAlignment="Center" Foreground="#FF666666" FontSize="12"
+                                       Text="USB 直连（VID 0471 / PID A531）。libusb0 独占设备，需先关闭 AutoShop。"/>
+                        </StackPanel>
+
+                        <!-- 串口 -->
+                        <StackPanel x:Name="pnlSerial" Orientation="Horizontal" Visibility="Collapsed">
+                            <TextBlock Text="端口" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <ComboBox x:Name="cmbPort" Width="100" Height="24" VerticalContentAlignment="Center"
+                                      SelectionChanged="Cfg_Changed"/>
+                            <Button x:Name="btnRefreshPort" Content="刷新" Width="52" Height="24" Margin="4,0,12,0" Click="BtnRefreshPort_Click"/>
+
+                            <TextBlock Text="波特率" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <ComboBox x:Name="cmbBaud" Width="90" Height="24" VerticalContentAlignment="Center"
+                                      SelectionChanged="Cfg_Changed">
+                                <ComboBoxItem Content="19200" IsSelected="True"/>
+                                <ComboBoxItem Content="9600"/>
+                                <ComboBoxItem Content="38400"/>
+                                <ComboBoxItem Content="57600"/>
+                                <ComboBoxItem Content="115200"/>
+                            </ComboBox>
+
+                            <TextBlock Text="数据位" VerticalAlignment="Center" Margin="10,0,4,0"/>
+                            <ComboBox x:Name="cmbDataBits" Width="52" Height="24" VerticalContentAlignment="Center"
+                                      SelectionChanged="Cfg_Changed">
+                                <ComboBoxItem Content="8" IsSelected="True"/>
+                                <ComboBoxItem Content="7"/>
+                            </ComboBox>
+
+                            <TextBlock Text="校验" VerticalAlignment="Center" Margin="10,0,4,0"/>
+                            <ComboBox x:Name="cmbParity" Width="70" Height="24" VerticalContentAlignment="Center"
+                                      SelectionChanged="Cfg_Changed">
+                                <ComboBoxItem Content="None" IsSelected="True"/>
+                                <ComboBoxItem Content="Even"/>
+                                <ComboBoxItem Content="Odd"/>
+                            </ComboBox>
+
+                            <TextBlock Text="停止位" VerticalAlignment="Center" Margin="10,0,4,0"/>
+                            <ComboBox x:Name="cmbStopBits" Width="52" Height="24" VerticalContentAlignment="Center"
+                                      SelectionChanged="Cfg_Changed">
+                                <ComboBoxItem Content="1" IsSelected="True"/>
+                                <ComboBoxItem Content="2"/>
+                            </ComboBox>
+
+                            <TextBlock Text="从站地址" VerticalAlignment="Center" Margin="10,0,4,0"/>
+                            <TextBox x:Name="txtUnitId" Width="40" Height="24" VerticalContentAlignment="Center" Text="1"
+                                     LostFocus="Cfg_Changed"/>
+                        </StackPanel>
+
+                        <!-- TCP -->
+                        <StackPanel x:Name="pnlTcp" Orientation="Horizontal" Visibility="Collapsed">
+                            <TextBlock Text="IP" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <TextBox x:Name="txtTcpHost" Width="130" Height="24" VerticalContentAlignment="Center" Text="192.168.1.88"
+                                     LostFocus="Cfg_Changed"/>
+                            <TextBlock Text="端口" VerticalAlignment="Center" Margin="12,0,4,0"/>
+                            <TextBox x:Name="txtTcpPort" Width="62" Height="24" VerticalContentAlignment="Center" Text="12939"
+                                     LostFocus="Cfg_Changed"/>
+                            <TextBlock Text="单元ID" VerticalAlignment="Center" Margin="12,0,4,0"/>
+                            <TextBox x:Name="txtTcpUnitId" Width="40" Height="24" VerticalContentAlignment="Center" Text="1"
+                                     LostFocus="Cfg_Changed"/>
+                            <TextBlock VerticalAlignment="Center" Margin="14,0,0,0" Foreground="#FF666666" FontSize="11"
+                                       Text="（烧录/在线读写端口 12939 私有协议；502 仅标准 Modbus TCP）"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </GroupBox>
+
+            <!-- 2) PLC 运行控制 -->
+            <GroupBox Grid.Row="2" Header="PLC 运行控制（Run / Stop）" Margin="0,0,0,8">
+                <StackPanel Orientation="Horizontal" Margin="6">
+                    <Button x:Name="btnRun"   Content="RUN 运行"  Width="110" Height="34" Margin="4" Click="BtnRun_Click"/>
+                    <Button x:Name="btnStop"  Content="STOP 停止" Width="110" Height="34" Margin="4" Click="BtnStop_Click"/>
+                </StackPanel>
+            </GroupBox>
+
+            <!-- 3) 程序文件（统一入口：.updown / .down 通用，按通道自动选择下发方式） -->
+            <GroupBox Grid.Row="3" Header="程序文件（.updown / .down 通用）" Margin="0,0,0,8">
+                <Grid Margin="6">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBox x:Name="txtFile" Grid.Row="0" Grid.Column="0" Height="26" VerticalContentAlignment="Center"
+                             ToolTip="支持 .updown（USB 下载）与 .down（串口烧录）两种格式；USB/串口/TCP 三种通道共用这一个文件选择。"/>
+                    <Button x:Name="btnBrowse" Grid.Row="0" Grid.Column="1" Content="浏览..." Width="72" Height="26" Margin="6,0,0,0" Click="BtnBrowse_Click"/>
+
+                    <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,6,0,0">
+                        <CheckBox x:Name="chkForce"      Content="机型不匹配也继续" Margin="4,0,0,0" VerticalAlignment="Center"
+                                  Checked="Cfg_Changed" Unchecked="Cfg_Changed"
+                                  ToolTip="包内机型与 PLC 读取到的机型不一致时，默认会中止以防写错；勾选则强制继续。"/>
+                        <TextBlock VerticalAlignment="Center" Margin="16,0,0,0" Foreground="#FF666666" FontSize="11"
+                                   Text="运行态处理：下载前若 PLC 在运行，会弹窗确认是否停机；下载完成后若原本在运行，会再弹窗询问是否恢复运行。"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button x:Name="btnDownload" Content="下载 / 烧录" Width="140" Height="34" Click="BtnDownload_Click"/>
+                        <TextBlock x:Name="lblFileHint" VerticalAlignment="Center" Margin="10,0,0,0"
+                                   Foreground="#FF666666" FontSize="11" Text=""/>
+                    </StackPanel>
+                </Grid>
+            </GroupBox>
+
+            <!-- 4) 驱动维护 -->
+            <GroupBox Grid.Row="4" Header="驱动维护（libusb0 内核驱动，仅 USB 通道需要）" Margin="0,0,0,8">
+                <StackPanel Orientation="Horizontal" Margin="6">
+                    <Button x:Name="btnFixDriver" Content="安装/修复驱动" Width="140" Height="34" Margin="4" Click="BtnFixDriver_Click"
+                            ToolTip="强制释放内嵌驱动并弹 UAC 安装。本机已装 AutoShop 时也可用来验证安装流程；驱动损坏时用于修复。"/>
+                    <TextBlock VerticalAlignment="Center" Margin="8,0,0,0" Foreground="#FF666666" FontSize="11"
+                               Text="提示：本机已装 AutoShop 时驱动通常已就绪，一般无需操作。"/>
+                </StackPanel>
+            </GroupBox>
+
+            <!-- 5) 进度条 -->
+            <ProgressBar x:Name="progress" Grid.Row="5" Height="16" Margin="0,0,0,8" Minimum="0" Maximum="100" Value="0"/>
+
+            <!-- 6) 日志 + 返回简易模式按钮（同处 * 行：按钮浮在右下角，日志留出右侧空档避免压字） -->
+            <GroupBox Grid.Row="6" Header="运行日志" Margin="0,0,0,0" Padding="4,2,4,34">
+                <TextBox x:Name="txtLog" IsReadOnly="True" TextWrapping="NoWrap"
+                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                         FontFamily="Cascadia Mono, Consolas, Courier New, Microsoft YaHei UI"
+                         FontSize="12" Background="#FFF8F8F8" MinHeight="120"/>
+            </GroupBox>
+
+            <Button x:Name="btnSimpleMode" Grid.Row="6" Content="◂ 简易模式" Width="110" Height="30"
+                    HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,6"
+                    Click="BtnSimpleMode_Click"
+                    ToolTip="回到一键下载界面（同时把窗口尺寸缩回简易模式的紧凑大小）。"/>
+        </Grid>
+    </Grid>
+</Window>
